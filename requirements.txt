@@ -1,0 +1,7 @@
+refastapi
+uvicorn
+pymongo
+cloudinary
+python-multipart
+python-dotenv
+
