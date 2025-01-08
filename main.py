@@ -28,22 +28,24 @@ async def upload_image(file: UploadFile = File(...), title: str = None, descript
         
         # Extract metadata
         image_data = {
-            "title": title,  # Optional title for the image
-            "description": description,  # Optional description
-            "url": result['url'],  # Image URL from Cloudinary
-            "public_id": result['public_id'],  # Cloudinary public ID
-            "created_at": result['created_at'],  # Timestamp of upload
-            "width": result['width'],  # Image width
-            "height": result['height'],  # Image height
-            "format": result['format']  # Image format (e.g., jpg, png)
+            "title": title,
+            "description": description,
+            "url": result['url'],
+            "public_id": result['public_id'],
+            "created_at": result['created_at'],
+            "width": result['width'],
+            "height": result['height'],
+            "format": result['format']
         }
         
         # Store metadata in MongoDB
-        collection.insert_one(image_data)
+        insert_result = collection.insert_one(image_data)
+        image_data["_id"] = str(insert_result.inserted_id)  # Convert ObjectId to string
 
         return {"message": "Image uploaded successfully", "image_data": image_data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/images")
 def get_images():
@@ -57,6 +59,9 @@ def get_images():
 @app.delete("/delete/{public_id}")
 def delete_image(public_id: str):
     try:
+        # Ensure the public_id doesn't include the folder path
+        public_id = public_id.replace("uploaded_images/", "")
+        
         # Delete the image from Cloudinary
         cloudinary.api.delete_resources([public_id])
         
