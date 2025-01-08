@@ -21,19 +21,35 @@ db = client['famnest']  # Replace with your database name
 collection = db['media']
 
 @app.post("/upload")
-async def upload_image(file: UploadFile = File(...)):
+async def upload_image(file: UploadFile = File(...), title: str = None, description: str = None):
     try:
+        # Upload the image to Cloudinary
         result = cloudinary.uploader.upload(file.file, folder="uploaded_images")
-        image_data = {"url": result['url'], "public_id": result['public_id']}
+        
+        # Extract metadata
+        image_data = {
+            "title": title,  # Optional title for the image
+            "description": description,  # Optional description
+            "url": result['url'],  # Image URL from Cloudinary
+            "public_id": result['public_id'],  # Cloudinary public ID
+            "created_at": result['created_at'],  # Timestamp of upload
+            "width": result['width'],  # Image width
+            "height": result['height'],  # Image height
+            "format": result['format']  # Image format (e.g., jpg, png)
+        }
+        
+        # Store metadata in MongoDB
         collection.insert_one(image_data)
-        return {"message": "Image uploaded successfully", "url": result['url']}
+
+        return {"message": "Image uploaded successfully", "image_data": image_data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/images")
 def get_images():
     try:
-        images = list(collection.find({}, {"_id": 0}))
+        # Fetch all image metadata from MongoDB
+        images = list(collection.find({}, {"_id": 0}))  # Exclude MongoDB `_id` field
         return images
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -41,9 +57,12 @@ def get_images():
 @app.delete("/delete/{public_id}")
 def delete_image(public_id: str):
     try:
+        # Delete the image from Cloudinary
         cloudinary.api.delete_resources([public_id])
+        
+        # Remove metadata from MongoDB
         collection.delete_one({"public_id": public_id})
+
         return {"message": "Image deleted successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
